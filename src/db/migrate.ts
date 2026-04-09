@@ -21,8 +21,7 @@ async function migrateToLatest() {
       }),
     }),
   });
-  logger.info("Starting database migration... ");
-  logger.info(`Using database URL: ${__dirname}`);
+  logger.info("Starting database migration...");
   const migrator = new Migrator({
     db,
     provider: new FileMigrationProvider({
