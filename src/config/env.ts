@@ -15,7 +15,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 
   REDIS_URL: z.string().min(1, "REDIS_URL is required"),
-
+  REDIS_TTL: z.coerce.number().default(60000),
   GITHUB_TOKEN: z.string().optional(),
   GITHUB_API_BASE_URL: z.string().default("https://api.github.com"),
 
@@ -27,7 +27,7 @@ const envSchema = z.object({
 
   APP_BASE_URL: z.url(),
 
-  SCANNER_INTERVAL_MS: z.coerce.number().default(300000),
+  SCANNER_CRON: z.string().optional(),
 
   API_KEY: z.string().min(1, "API_KEY is required"),
 });

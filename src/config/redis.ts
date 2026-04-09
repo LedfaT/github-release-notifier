@@ -9,5 +9,18 @@ export const redis = createClient({
 const logger = createLogger("redis client");
 
 redis.on("error", (err) => {
-  logger.error("Redis error:", err);
+  logger.error({ err }, "Redis error");
 });
+
+export async function connectRedis(): Promise<void> {
+  if (redis.isOpen) {
+    return;
+  }
+
+  try {
+    await redis.connect();
+    logger.info("Redis connected");
+  } catch (err) {
+    logger.warn({ err }, "Redis is unavailable, cache will be disabled");
+  }
+}

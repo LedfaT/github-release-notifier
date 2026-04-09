@@ -1,4 +1,21 @@
 services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: github-release-notifier-migrate
+    restart: "no"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/github_notifier
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "npm run migrate"
+
   app:
     build:
       context: .
@@ -7,42 +24,30 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
-
     env_file:
       - .env
-
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
       DATABASE_URL: postgresql://postgres:postgres@db:5432/github_notifier
       REDIS_URL: redis://redis:6379
-
     depends_on:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
-
-    volumes:
-      - .:/app
-      - /app/node_modules
-
-    command: sh -c "npm install && npm run migrate && npm run dev"
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   db:
     image: postgres:16-alpine
     container_name: github-release-notifier-db
     restart: unless-stopped
-    ports:
-      - "5432:5432"
-
     environment:
       POSTGRES_DB: github_notifier
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d github_notifier"]
       interval: 5s
@@ -53,10 +58,13 @@ services:
     image: redis:7-alpine
     container_name: github-release-notifier-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   postgres_data:
