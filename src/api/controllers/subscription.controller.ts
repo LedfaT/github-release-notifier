@@ -78,9 +78,7 @@ class SubscribeController {
 
       logger.info({ path: req.path }, "Subscription confirmed");
 
-      return res.status(200).json({
-        message: "Subscription confirmed successfully",
-      });
+      res.redirect(302, "/");
     } catch (error) {
       next(error);
     }
@@ -101,9 +99,7 @@ class SubscribeController {
 
       logger.info({ path: req.path }, "Unsubscribed");
 
-      return res.status(200).json({
-        message: "Unsubscribed successfully",
-      });
+      res.redirect(302, "/");
     } catch (error) {
       next(error);
     }
@@ -122,7 +118,10 @@ class SubscribeController {
         return next(ApiError.BadRequest("Invalid email query parameter"));
       }
 
-      logger.info({ email: parsed.data.email }, "Fetching active subscriptions");
+      logger.info(
+        { email: parsed.data.email },
+        "Fetching active subscriptions",
+      );
 
       const subscriptions = await subscriptionService.getActiveSubscriptions(
         parsed.data.email,

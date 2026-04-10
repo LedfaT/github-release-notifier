@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Subscriptions</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+
+      form {
+        margin-bottom: 12px;
+      }
+
+      input {
+        padding: 6px;
+        margin-right: 6px;
+      }
+
+      button {
+        padding: 6px 10px;
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        max-width: 640px;
+      }
+
+      th,
+      td {
+        border: 1px solid #ccc;
+        padding: 6px;
+        text-align: left;
+        font-size: 14px;
+      }
+
+      .status {
+        margin: 8px 0 14px;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>GitHub Subscriptions</h2>
+
+    <form id="subscribeForm">
+      <input id="email" type="email" placeholder="email" required />
+      <input id="repository" type="text" placeholder="owner/repo" required />
+      <button type="submit">Subscribe</button>
+    </form>
+    <div id="subscribeStatus" class="status"></div>
+
+    <form id="lookupForm">
+      <input id="lookupEmail" type="email" placeholder="email" required />
+      <button type="submit">Load subscriptions</button>
+    </form>
+    <div id="lookupStatus" class="status"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Repository</th>
+          <th>Status</th>
+          <th>Created At</th>
+        </tr>
+      </thead>
+      <tbody id="rows">
+        <tr>
+          <td colspan="3">No data</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <meta name="api-key" content="__API_KEY__" />
+    <script src="./script.js"></script>
+  </body>
+</html>

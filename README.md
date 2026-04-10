@@ -1,3 +1,6 @@
+## Host
+
+https://github-release-notifier-05wf.onrender.com
 
 ## Core logic
 
@@ -135,4 +138,3 @@ Run:
 ```bash
 docker compose up --build -d
 ```
-
