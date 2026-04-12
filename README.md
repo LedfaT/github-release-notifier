@@ -2,6 +2,9 @@
 
 https://github-release-notifier-05wf.onrender.com
 
+Note: Prometheus and Grafana are available only in local Docker Compose setup and
+are not exposed on the hosted Render deployment.
+
 ## Core logic
 
 ### Subscription flow
@@ -113,29 +116,67 @@ Returns active subscriptions for the email.
 
 ### `GET /metrics`
 
-Prometheus metrics endpoint.
+Grafana UI (served behind the reverse proxy).
+
+Raw Prometheus metrics are still exposed by the app internally at `app:3000/metrics`
+for Prometheus scraping.
 
 ## Environment variables
 
 Use `.env.example` as a template.
 
-Configuration keys:
+`PORT`
+- App HTTP port (default: `3000`).
 
-- `PORT`
-- `NODE_ENV`
-- `DATABASE_URL`
-- `REDIS_URL`
-- `REDIS_TTL`
-- `GITHUB_TOKEN` (optional but recommended)
-- `GITHUB_API_BASE_URL`
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_USER`
-- `SMTP_PASS`
-- `MAIL_FROM`
-- `APP_BASE_URL`
-- `SCANNER_CRON`
-- `API_KEY`
+`NODE_ENV`
+- Runtime mode: `development`, `production`, or `test` (default: `development`).
+
+`DATABASE_URL`
+- PostgreSQL connection string (required).
+- From `.env.example`: `postgres://postgres:postgres@db:5432/github_notifier`.
+
+`REDIS_URL`
+- Redis connection string (required).
+- From `.env.example`: `redis://redis:6379`.
+
+`REDIS_TTL`
+- Default TTL for Redis repository-existence cache (in seconds).
+- From `.env.example`: `60000`.
+
+`GITHUB_TOKEN`
+- Optional GitHub personal access token.
+- Recommended to reduce rate-limit pressure on GitHub API requests.
+
+`GITHUB_API_BASE_URL`
+- Base URL for GitHub API (default: `https://api.github.com`).
+
+`SMTP_HOST`
+- SMTP host for outgoing emails (required).
+- Local example uses `mailhog`.
+
+`SMTP_PORT`
+- SMTP port (default: `1025` in local setup).
+
+`SMTP_USER`
+- Optional SMTP username.
+
+`SMTP_PASS`
+- Optional SMTP password.
+
+`MAIL_FROM`
+- Sender email used in notification messages (required valid email).
+- Example: `no-reply@example.com`.
+
+`APP_BASE_URL`
+- Public base URL used to build links in emails (`/api/confirm/:token`, `/api/unsubscribe/:token`).
+- Must include protocol, for example: `http://localhost:3000`.
+
+`SCANNER_CRON`
+- Optional cron schedule for scanner job.
+- If empty or invalid, fallback is `*/5 * * * *`.
+
+`API_KEY`
+- Required API key expected in `x-api-key` header for protected API endpoints.
 
 ## Local development
 
@@ -165,8 +206,15 @@ The main `docker-compose.yml` is configured for production behavior:
 
 - separate one-off `migrate` service,
 - `app` starts only after successful migrations,
-- `db` and `redis` are internal services,
-- only app port `3000` is published.
+- `db`, `redis`, `prometheus`, and `grafana` are internal services,
+- reverse proxy publishes port `3000`,
+- `/metrics` is routed to Grafana.
+
+Prometheus/Grafana in this compose are intended for local monitoring only.
+
+Default Grafana credentials:
+
+- `admin` / `admin`
 
 Run:
 

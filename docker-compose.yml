@@ -22,8 +22,6 @@ services:
       dockerfile: Dockerfile
     container_name: github-release-notifier-app
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     env_file:
       - .env
     environment:
@@ -37,6 +35,50 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+
+  proxy:
+    image: nginx:1.27-alpine
+    container_name: github-release-notifier-proxy
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    volumes:
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      app:
+        condition: service_started
+      grafana:
+        condition: service_started
+
+  prometheus:
+    image: prom/prometheus:v2.53.4
+    container_name: github-release-notifier-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      app:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    container_name: github-release-notifier-grafana
+    restart: unless-stopped
+    environment:
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s:%(http_port)s/metrics/"
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      prometheus:
+        condition: service_started
 
   db:
     image: postgres:16-alpine
@@ -73,3 +115,5 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  prometheus_data:
+  grafana_data:
