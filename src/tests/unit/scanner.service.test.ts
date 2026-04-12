@@ -7,6 +7,7 @@ import scannerService from "../../api/modules/scanner/scanner.service";
 jest.mock("../../api/modules/github/github.service", () => ({
   __esModule: true,
   default: {
+    ensureRateLimitNotBlocked: jest.fn(),
     getLatestRelease: jest.fn(),
   },
 }));
@@ -14,6 +15,7 @@ jest.mock("../../api/modules/github/github.service", () => ({
 jest.mock("../../api/modules/notifier/notifier.service", () => ({
   __esModule: true,
   default: {
+    flushUndeliveredReleaseEmails: jest.fn(),
     sendNewReleaseEmail: jest.fn(),
   },
 }));
@@ -36,6 +38,10 @@ describe("ScannerService", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    githubServiceMock.ensureRateLimitNotBlocked.mockResolvedValue(undefined);
+    notifierServiceMock.flushUndeliveredReleaseEmails.mockResolvedValue(
+      undefined,
+    );
   });
 
   it("sets baseline tag and does not send emails when lastSeenTag is null", async () => {
@@ -49,6 +55,9 @@ describe("ScannerService", () => {
 
     await scannerService.runOnce();
 
+    expect(
+      notifierServiceMock.flushUndeliveredReleaseEmails,
+    ).toHaveBeenCalledTimes(1);
     expect(
       scannerRepositoryMock.listActiveSubscribersByRepositoryId,
     ).not.toHaveBeenCalled();
@@ -77,6 +86,9 @@ describe("ScannerService", () => {
 
     await scannerService.runOnce();
 
+    expect(
+      notifierServiceMock.flushUndeliveredReleaseEmails,
+    ).toHaveBeenCalledTimes(1);
     expect(notifierServiceMock.sendNewReleaseEmail).toHaveBeenCalledTimes(2);
     expect(notifierServiceMock.sendNewReleaseEmail).toHaveBeenNthCalledWith(1, {
       email: "a@example.com",
@@ -105,10 +117,47 @@ describe("ScannerService", () => {
 
     await scannerService.runOnce();
 
+    expect(
+      notifierServiceMock.flushUndeliveredReleaseEmails,
+    ).toHaveBeenCalledTimes(1);
+    expect(githubServiceMock.ensureRateLimitNotBlocked).toHaveBeenCalledTimes(1);
     expect(githubServiceMock.getLatestRelease).toHaveBeenCalledTimes(1);
     expect(githubServiceMock.getLatestRelease).toHaveBeenCalledWith(
       "owner/repo-1",
     );
     expect(notifierServiceMock.sendNewReleaseEmail).not.toHaveBeenCalled();
+  });
+
+  it("skips cycle when cached GitHub rate-limit is active", async () => {
+    githubServiceMock.ensureRateLimitNotBlocked.mockRejectedValue(
+      new GithubRateLimitError({
+        message: "GitHub API rate limit exceeded",
+        retryAfterSeconds: 90,
+      }),
+    );
+
+    await scannerService.runOnce();
+
+    expect(
+      notifierServiceMock.flushUndeliveredReleaseEmails,
+    ).toHaveBeenCalledTimes(1);
+    expect(githubServiceMock.ensureRateLimitNotBlocked).toHaveBeenCalledTimes(1);
+    expect(scannerRepositoryMock.listTrackedRepositories).not.toHaveBeenCalled();
+    expect(githubServiceMock.getLatestRelease).not.toHaveBeenCalled();
+    expect(notifierServiceMock.sendNewReleaseEmail).not.toHaveBeenCalled();
+  });
+
+  it("processes undelivered release queue before GitHub scanning", async () => {
+    scannerRepositoryMock.listTrackedRepositories.mockResolvedValue([]);
+
+    await scannerService.runOnce();
+
+    const flushOrder =
+      notifierServiceMock.flushUndeliveredReleaseEmails.mock
+        .invocationCallOrder[0];
+    const listRepositoriesOrder =
+      scannerRepositoryMock.listTrackedRepositories.mock.invocationCallOrder[0];
+
+    expect(flushOrder).toBeLessThan(listRepositoriesOrder);
   });
 });

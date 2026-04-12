@@ -31,17 +31,52 @@ https://github-release-notifier-05wf.onrender.com
 
 - Cron expression is read from `SCANNER_CRON` (default: `*/5 * * * *`).
 - Scanner also runs once immediately on startup.
-- For each tracked repository:
-  - fetch latest release from GitHub,
-  - compare against `lastSeenTag`,
-  - notify active subscribers on change,
-  - update scan state in DB.
-- If GitHub rate limit is hit, current scan cycle stops early.
+- Each scanner cycle does the following in order:
+  1. Retries queued undelivered release emails from Redis cache.
+  2. Checks global GitHub rate-limit cache.
+  3. If GitHub is available, scans repositories:
+     - fetch latest release from GitHub,
+     - compare against `lastSeenTag`,
+     - notify active subscribers on change,
+     - update scan state in DB.
+- If a global GitHub block is active, scanner skips repository scanning for this cycle.
+- If GitHub rate limit is hit during scanning, scanner caches unblock time and stops the current cycle immediately.
 
-### Caching
+### Cache and rate-limit behavior
 
-- Repository existence checks are cached in Redis.
+Redis is used for three independent cache responsibilities:
+
+1. Repository existence cache:
+   - key format: `github:repo_exists:<owner/repo>`
+   - stores `1` or `0` for repository existence checks in subscription flow
+
+2. Global GitHub rate-limit block cache:
+   - key: `github:rate_limit:blocked_until`
+   - stores unblock timestamp derived from GitHub headers (`x-ratelimit-reset` or `retry-after`)
+   - checked before any GitHub API request (both subscription and scanner)
+   - while active:
+     - subscription returns `429` with retry details,
+     - scanner skips GitHub scanning
+
+3. Undelivered release notifications queue (hash map):
+   - key: `notifier:undelivered_messages`
+   - contains only failed **new release** email deliveries
+   - entries are retried at the start of each scanner cycle
+   - successful retry removes entry from hash
+   - failed retry keeps entry for next cycle
+
+### Rate-limit propagation
+
+- Any `429` (or `403` with `x-ratelimit-remaining=0`) from GitHub is treated as rate limit.
+- Unblock time is written to global cache immediately.
+- This makes behavior consistent across all flows:
+  - if limit is hit during subscription, next scanner cycle also sees the block;
+  - if limit is hit during scanner, new subscription checks also see the block.
+
+### TTL
+
 - Cache TTL is controlled by `REDIS_TTL`.
+- For global rate-limit key, effective TTL is reduced to the exact remaining unblock window.
 
 ## API
 

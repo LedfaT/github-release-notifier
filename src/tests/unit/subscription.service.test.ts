@@ -114,6 +114,7 @@ describe("SubscriptionService", () => {
     githubServiceMock.repositoryExists.mockRejectedValue(
       new GithubRateLimitError({
         message: "GitHub API rate limit exceeded",
+        retryAfterSeconds: 120,
       }),
     );
 
@@ -124,7 +125,13 @@ describe("SubscriptionService", () => {
       }),
     ).rejects.toMatchObject<ApiError>({
       status: 429,
-      message: "GitHub API rate limit exceeded. Please try again later.",
+      message: "GitHub API rate limit exceeded. Try again in 120 seconds.",
+      errors: [
+        {
+          code: "GITHUB_RATE_LIMIT",
+          retryAfterSeconds: 120,
+        },
+      ],
     });
   });
 });
