@@ -39,10 +39,13 @@ export class SubscriptionService {
       repositoryExists = await githubService.repositoryExists(normalizedRepository);
     } catch (err) {
       if (err instanceof GithubRateLimitError) {
-        throw new ApiError(
-          429,
-          "GitHub API rate limit exceeded. Please try again later.",
-        );
+        throw new ApiError(429, this.buildRateLimitMessage(err), [
+          {
+            code: "GITHUB_RATE_LIMIT",
+            retryAfterSeconds: err.retryAfterSeconds,
+            resetAt: err.resetAt?.toISOString(),
+          },
+        ]);
       }
 
       throw err;
@@ -249,6 +252,24 @@ export class SubscriptionService {
 
   private hashToken(token: string): string {
     return crypto.createHash("sha256").update(token).digest("hex");
+  }
+
+  private buildRateLimitMessage(error: GithubRateLimitError): string {
+    const details: string[] = [];
+
+    if (typeof error.retryAfterSeconds === "number") {
+      details.push(`Try again in ${error.retryAfterSeconds} seconds.`);
+    }
+
+    if (error.resetAt) {
+      details.push(`GitHub requests will resume at ${error.resetAt.toISOString()}.`);
+    }
+
+    if (details.length === 0) {
+      details.push("Please try again later.");
+    }
+
+    return `GitHub API rate limit exceeded. ${details.join(" ")}`;
   }
 }
 

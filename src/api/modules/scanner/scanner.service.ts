@@ -9,6 +9,29 @@ const logger = createLogger("scanner-service");
 
 class ScannerService {
   async runOnce(): Promise<void> {
+    try {
+      await notifierService.flushUndeliveredReleaseEmails();
+    } catch (err) {
+      logger.error({ err }, "Failed to process undelivered release emails");
+    }
+
+    try {
+      await githubService.ensureRateLimitNotBlocked();
+    } catch (err) {
+      if (err instanceof GithubRateLimitError) {
+        logger.warn(
+          {
+            retryAfterSeconds: err.retryAfterSeconds,
+            resetAt: err.resetAt?.toISOString(),
+          },
+          "Scanner cycle skipped due to active GitHub rate limit",
+        );
+        return;
+      }
+
+      throw err;
+    }
+
     const repositories = await scannerRepository.listTrackedRepositories();
     logger.info({ repositories: repositories.length }, "Scanner cycle started");
 
