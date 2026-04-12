@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import { env } from "../../../config/env";
 import { createLogger } from "../../../config/logger";
 import { redis } from "../../../config/redis";
 
